@@ -1,32 +1,30 @@
 ---
 - name: Installer et configurer Apache
-  hosts: all
+  hosts: web
   become: yes
 
   tasks:
     - name: Mettre à jour le cache APT
       apt:
         update_cache: yes
-        cache_valid_time: 3600
 
     - name: Installer Apache
       apt:
         name: apache2
         state: present
 
-    - name: Démarrer et activer Apache
+    - name: Vérifier si systemd est disponible
+      stat:
+        path: /bin/systemctl
+      register: systemd_check
+
+    - name: Démarrer et activer Apache (systemd)
       service:
         name: apache2
         state: started
         enabled: yes
+      when: systemd_check.stat.exists
 
-    - name: Autoriser Apache via UFW (si actif)
-      ufw:
-        rule: allow
-        name: "Apache Full"
-      when: ansible_facts.services['ufw.service'] is defined
-
-    - name: Vérifier qu'Apache écoute sur le port 80
-      wait_for:
-        port: 80
-        timeout: 10
+    - name: Démarrer Apache sans systemd
+      command: apachectl start
+      when: not systemd_check.stat.exists
