@@ -5,21 +5,21 @@
   gather_facts: yes
 
   tasks:
-    - name: Mettre à jour le cache APT (Debian/Ubuntu)
+    - name: Mettre à jour le cache APT
       apt:
         update_cache: yes
-      when: ansible_os_family == "Debian"
 
     - name: Installer cmatrix
-      package:
+      apt:
         name: cmatrix
         state: present
 
     - name: Vérifier que cmatrix est installé
-      command: cmatrix -h
+      command: dpkg -l cmatrix
       register: cmatrix_check
+      failed_when: cmatrix_check.rc != 0
       changed_when: false
 
     - name: Afficher le résultat du test
       debug:
-        msg: "cmatrix est bien installé et fonctionnel ✔️"
+        msg: "cmatrix est bien installé ✔️"
