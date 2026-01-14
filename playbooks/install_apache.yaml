@@ -1,30 +1,38 @@
 ---
-- name: Installer et configurer Apache
-  hosts: all
+- hosts: all
   become: yes
-
   tasks:
-    - name: Mettre à jour le cache APT
-      apt:
-        update_cache: yes
-
-    - name: Installer Apache
+    - name: install apache2
       apt:
         name: apache2
+        update_cache: yes
+        state: latest
+
+    - name: enable mod_rewrite
+      apache2_module:
+        name: rewrite
         state: present
+      notify:
+        - restart apache2
 
-    - name: Vérifier si systemd est disponible
-      stat:
-        path: /bin/systemctl
-      register: systemd_check
+    - name: apache2 listen on port 8081
+      lineinfile:
+        dest: /etc/apache2/ports.conf
+        regexp: "^Listen 80"
+        line: "Listen 8081"
+      notify:
+        - restart apache2
 
-    - name: Démarrer et activer Apache (systemd)
+    - name: apache2 virtualhost on port 8081
+      lineinfile:
+        dest: /etc/apache2/sites-available/000-default.conf
+        regexp: "^<VirtualHost \*:80>"
+        line: "<VirtualHost *:8081>"
+      notify:
+        - restart apache2
+
+  handlers:
+    - name: restart apache2
       service:
         name: apache2
-        state: started
-        enabled: yes
-      when: systemd_check.stat.exists
-
-    - name: Démarrer Apache sans systemd
-      command: apachectl start
-      when: not systemd_check.stat.exists
+        state: restarted
