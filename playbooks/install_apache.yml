@@ -1,55 +1,82 @@
 ---
-- name: Installation Apache Ubuntu 24.04
+- name: Installation complète d'Apache sur Ubuntu 24.04
   hosts: all
   become: yes
 
   tasks:
+    - name: Remove Apache if partially installed
+      apt:
+        name: apache2
+        state: absent
+        purge: yes
+        autoremove: yes
+      ignore_errors: yes
+
+    - name: Clean apt cache
+      apt:
+        autoclean: yes
+
     - name: Update apt cache
       apt:
         update_cache: yes
 
-    - name: Install Apache
+    - name: Install Apache avec dépendances
       apt:
-        name: apache2
-        state: present
+        name:
+          - apache2
+          - apache2-utils
+          - apache2-bin
+        state: latest
 
-    - name: Try to manage service as apache2
+    - name: Check service file
+      stat:
+        path: /lib/systemd/system/apache2.service
+      register: service_file
+
+    - name: Debug service file
+      debug:
+        var: service_file.stat.exists
+
+    - name: Create service file if missing (fallback)
       block:
-        - name: Start and enable apache2 service
+        - name: Create basic apache2 service
+          copy:
+            dest: /lib/systemd/system/apache2.service
+            content: |
+              [Unit]
+              Description=The Apache HTTP Server
+              After=network.target
+
+              [Service]
+              Type=forking
+              ExecStart=/usr/sbin/apachectl start
+              ExecStop=/usr/sbin/apachectl stop
+              ExecReload=/usr/sbin/apachectl graceful
+              Restart=on-abort
+
+              [Install]
+              WantedBy=multi-user.target
+          when: not service_file.stat.exists
+
+        - name: Reload systemd
           systemd:
-            name: apache2
-            state: started
-            enabled: yes
-          register: service_result
-      rescue:
-        - name: Debug - Service apache2 failed
-          debug:
-            msg: "Service apache2 not found, checking alternatives..."
+            daemon_reload: yes
+          when: not service_file.stat.exists
+      when: not service_file.stat.exists
 
-        - name: Check for httpd service name
-          shell: |
-            systemctl list-unit-files | grep -E "(apache|httpd)" | head -5
-          register: service_names
-          changed_when: false
+    - name: Start and enable Apache
+      systemd:
+        name: apache2
+        state: started
+        enabled: yes
 
-        - name: Show found services
-          debug:
-            var: service_names.stdout
-
-        - name: Restart Apache using init script (fallback)
-          shell: |
-            sudo /etc/init.d/apache2 start || \
-            sudo service apache2 start || \
-            echo "Trying alternative methods..."
-          changed_when: false
-
-    - name: Verify Apache is running
-      uri:
-        url: "http://localhost"
-        status_code: 200
+    - name: Verify Apache installation
+      shell: |
+        curl -s -o /dev/null -w "%{http_code}" http://localhost || echo "Failed"
       register: http_check
+      changed_when: false
       ignore_errors: yes
 
-    - name: Display verification result
+    - name: Show verification result
       debug:
-        msg: "Apache HTTP check: {{ 'SUCCESS' if http_check.status == 200 else 'FAILED' }}"
+        msg: "Apache HTTP response: {{ http_check.stdout }}"
