@@ -1,6 +1,6 @@
 ---
 - name: Test Ansible avec installation de cmatrix
-  hosts: localhost
+  hosts: all
   become: yes
   
   tasks:
