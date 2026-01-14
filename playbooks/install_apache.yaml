@@ -36,7 +36,7 @@
         msg: "cmatrix est installé à l'emplacement: {{ cmatrix_path.stdout }}"
     
     - name: Tester la version de cmatrix
-      command: cmatrix -V
+      command: cmatrix -V2
       register: cmatrix_version
       changed_when: false
       failed_when: false
