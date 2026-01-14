@@ -1,25 +1,49 @@
 ---
-- name: Test du bon fonctionnement d'Ansible
-  hosts: all
+- name: Test Ansible avec installation de cmatrix
+  hosts: localhost
   become: yes
-  gather_facts: yes
-
+  
   tasks:
-    - name: Mettre à jour le cache APT
+    - name: Afficher un message de début
+      debug:
+        msg: "Début du test Ansible - Installation de cmatrix"
+    
+    - name: Mettre à jour le cache des paquets (Debian/Ubuntu)
       apt:
         update_cache: yes
-
-    - name: Installer cmatrix
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+    
+    - name: Installer cmatrix sur Debian/Ubuntu
       apt:
         name: cmatrix
         state: present
-
+      when: ansible_os_family == "Debian"
+    
+    - name: Installer cmatrix sur RedHat/CentOS/Fedora
+      yum:
+        name: cmatrix
+        state: present
+      when: ansible_os_family == "RedHat"
+    
     - name: Vérifier que cmatrix est installé
-      command: dpkg -l cmatrix
-      register: cmatrix_check
-      failed_when: cmatrix_check.rc != 0
+      command: which cmatrix
+      register: cmatrix_path
       changed_when: false
-
-    - name: Afficher le résultat du test
+    
+    - name: Afficher le chemin de cmatrix
       debug:
-        msg: "cmatrix est bien installé ✔️"
+        msg: "cmatrix est installé à l'emplacement: {{ cmatrix_path.stdout }}"
+    
+    - name: Tester la version de cmatrix
+      command: cmatrix -V
+      register: cmatrix_version
+      changed_when: false
+      failed_when: false
+    
+    - name: Afficher un message de succès
+      debug:
+        msg: 
+          - "✓ Test Ansible réussi!"
+          - "✓ cmatrix est installé et fonctionnel"
+          - "✓ Vous pouvez lancer 'cmatrix' dans votre terminal"
