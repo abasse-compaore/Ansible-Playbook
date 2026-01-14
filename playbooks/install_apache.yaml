@@ -1,38 +1,25 @@
 ---
-- hosts: all
+- name: Test du bon fonctionnement d'Ansible
+  hosts: all
   become: yes
+  gather_facts: yes
+
   tasks:
-    - name: install apache2
+    - name: Mettre à jour le cache APT (Debian/Ubuntu)
       apt:
-        name: apache2
         update_cache: yes
-        state: latest
+      when: ansible_os_family == "Debian"
 
-    - name: enable mod_rewrite
-      apache2_module:
-        name: rewrite
+    - name: Installer cmatrix
+      package:
+        name: cmatrix
         state: present
-      notify:
-        - restart apache2
 
-    - name: apache2 listen on port 8081
-      lineinfile:
-        dest: /etc/apache2/ports.conf
-        regexp: "^Listen 80"
-        line: "Listen 8081"
-      notify:
-        - restart apache2
+    - name: Vérifier que cmatrix est installé
+      command: cmatrix -h
+      register: cmatrix_check
+      changed_when: false
 
-    - name: apache2 virtualhost on port 8081
-      lineinfile:
-        dest: /etc/apache2/sites-available/000-default.conf
-        regexp: "^<VirtualHost \*:80>"
-        line: "<VirtualHost *:8081>"
-      notify:
-        - restart apache2
-
-  handlers:
-    - name: restart apache2
-      service:
-        name: apache2
-        state: restarted
+    - name: Afficher le résultat du test
+      debug:
+        msg: "cmatrix est bien installé et fonctionnel ✔️"
