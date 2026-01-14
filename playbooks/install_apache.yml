@@ -1,0 +1,74 @@
+---
+- name: Installation et configuration d'Apache sur Ubuntu 24.04
+  hosts: webservers
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Mise à jour du cache APT
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      tags: ['update']
+    
+    - name: Installation d'Apache2
+      ansible.builtin.apt:
+        name: apache2
+        state: present
+      tags: ['install']
+    
+    - name: Démarrage et activation d'Apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: started
+        enabled: yes
+      tags: ['service']
+    
+    - name: Vérification qu'Apache écoute sur le port 80
+      ansible.builtin.wait_for:
+        port: 80
+        timeout: 30
+      tags: ['verify']
+    
+    - name: Configuration du pare-feu UFW pour Apache
+      community.general.ufw:
+        rule: allow
+        name: 'Apache Full'
+      when: ansible_facts['os_family'] == "Debian"
+      tags: ['firewall']
+    
+    - name: Création d'une page HTML personnalisée
+      ansible.builtin.copy:
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Serveur Apache - {{ inventory_hostname }}</title>
+              <style>
+                  body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                  h1 { color: #D32F2F; }
+              </style>
+          </head>
+          <body>
+              <h1>🚀 Apache installé avec succès !</h1>
+              <p>Serveur : <strong>{{ inventory_hostname }}</strong></p>
+              <p>Adresse IP : <strong>{{ ansible_default_ipv4.address }}</strong></p>
+              <p>Déployé avec Ansible & Semaphore UI</p>
+          </body>
+          </html>
+        dest: /var/www/html/index.html
+        owner: www-data
+        group: www-data
+        mode: '0644'
+      tags: ['config']
+    
+    - name: Afficher le statut d'Apache
+      ansible.builtin.systemd:
+        name: apache2
+      register: apache_status
+      tags: ['status']
+    
+    - name: Afficher l'URL d'accès
+      ansible.builtin.debug:
+        msg: "Apache est accessible sur http://{{ ansible_default_ipv4.address }}"
+      tags: ['info']
